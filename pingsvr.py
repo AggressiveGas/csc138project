@@ -22,10 +22,12 @@ def senduserlist(connection):
         connection.send(json.dumps(user_list).encode())
     
 def broadcast(json_command, json_data, clientAddress):
-    for client in live_addresses:
-        data = {"command": json_command,"data": json_data, "sender": live_connections[clientAddress]}
-        encoded_data = json.dumps(data).encode()
-        client_connections[client].send(encoded_data)
+    with lock:
+        for client in live_addresses:
+            if client != clientAddress:
+                data = {"command": json_command,"data": json_data, "sender": live_connections[clientAddress]}
+                encoded_data = json.dumps(data).encode()
+                client_connections[client].send(encoded_data)
     
 # def handle_client(connection, clientAddress, live_connections):
 def handle_client(connection, clientAddress):
@@ -36,10 +38,7 @@ def handle_client(connection, clientAddress):
         decoded_json = json.loads(rec_data.decode('utf-8'))
         print(f"Initial data from {clientAddress}: {decoded_json['data']}")
         live_connections[clientAddress] = decoded_json["data"]
-        """
-        live_addresses.add(clientAddress)
-        client_connections[clientAddress] = connection """
-        
+
         # Continuous handling of client requests
         while True:
             message = connection.recv(2048)
@@ -85,8 +84,6 @@ def start_server(port):
         while True:
             connection, clientAddress = serverSocket.accept()
             print(f'Connection from {clientAddress}')
-
-            """ Just added """
 
             live_addresses.add(clientAddress)
             client_connections[clientAddress] = connection

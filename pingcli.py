@@ -1,3 +1,4 @@
+import select
 import socket
 import sys
 import json
@@ -18,6 +19,7 @@ def main():
 
     # Create a TCP socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
 
     try:
         # Ask for username
@@ -45,74 +47,81 @@ def main():
         
         while True:
 
-            command = input("Enter command (or 'quit' to exit): ")
+            socket_list = [sys.stdin, sock]
+            read_sockets,write_socket, error_socket = select.select(socket_list,[],[])
 
-            if command == "quit":
-                quit_message = json.dumps({"command": "quit", "data": "User has disconnected"}).encode()
-                sock.sendall(quit_message)
-                print("Connection closed")
-                break
+            for socks in read_sockets:
+                if socks == sock:
+                    try: 
+                        data = sock.recv(4096)
 
-            elif command == "list":
-                list_message = json.dumps({"command": "list", "data": "empty"}).encode()
-                sock.sendall(list_message)
-    
-                # Receive the response from the server
-                data = sock.recv(4096)  # Adjust buffer size as needed
-                if not data:
-                    print("No data received. Server may have closed the connection.")
-                    break
-                try:
-                    connections_list = json.loads(data.decode())  # Decode and parse the JSON string
-                    print("Current connections:", connections_list)
-                except json.JSONDecodeError as e:
-                    print(f"Error decoding JSON from server: {e}")
+                        if not data:
+                            break
 
-            elif command == "join":
-                print("You are already connected")
-                continue
-
-            elif command.startswith("mesg"):
-                # Prompt the user to enter a message
-                message = input("Enter message: ")
-
-                # Create a dictionary with the user's command and message
-                testdata = {"command": command, "data": message}
-
-                # Convert the dictionary to a JSON string and then encode it to bytes
-                encodedtestdata = json.dumps(testdata).encode()
-
-                # Send the encoded data over the socket
-                sock.sendall(encodedtestdata)
-            
-            elif command.startswith("bcst"):
-                # Dictionary entry for broadcast message
-                bcstdata = {"command": "bcst", "data": command[5:]}
-                # Converting the dictionary to a JSON string for the broadcast and encoding into bytes
-                endcodedbcst = json.dumps(bcstdata).encode()
-                sock.sendall(endcodedbcst)
-                
-                print(f"{username} is sending a broadcast.")
-
-                    # Receviving broadcast or direct messages from the server   
-            try: 
-                sock.settimeout(1)
-                data = sock.recv(4096)
-                print("data recieved")
-                if not data:
-                    pass
+                        decoded_json = json.loads(data.decode())
+                        #TODO print("loading and encoding in pingcli")
+                        json_command = decoded_json["command"]
+                        json_data = decoded_json["data"]
+                        json_sender = decoded_json["sender"]
+                        
+                        # Displaying broadcast and direct messages to client
+                        print(f"{json_sender}: {json_data}")
+                    except:
+                        #TODO
+                        continue
                 else:
-                    print("loading and encoding in pingcli")
-                    decoded_json = json.loads(data.decode())
-                    json_command = decoded_json["command"]
-                    json_data = decoded_json["data"]
-                    json_sender = decoded_json["sender"]
+                    # command = input("Enter command (or 'quit' to exit): ")
+                    command = input()
 
-                    # Displaying broadcast and direct messages to client
-                    print(f"{json_sender}: {json_data}")
-            except:
-                print("Broadcast or Message try-catch exception")
+            
+                    if command == "quit":
+                        quit_message = json.dumps({"command": "quit", "data": "User has disconnected"}).encode()
+                        sock.sendall(quit_message)
+                        print("Connection closed")
+                        break
 
+                    elif command == "list":
+                        list_message = json.dumps({"command": "list", "data": "empty"}).encode()
+                        sock.sendall(list_message)
+            
+                        # Receive the response from the server
+                        data = sock.recv(4096)  # Adjust buffer size as needed
+                        if not data:
+                            print("No data received. Server may have closed the connection.")
+                            break
+                        try:
+                            connections_list = json.loads(data.decode())  # Decode and parse the JSON string
+                            print("Current connections:", connections_list)
+                        except json.JSONDecodeError as e:
+                            print(f"Error decoding JSON from server: {e}")
+
+                    elif command == "join":
+                        print("You are already connected")
+                        continue
+
+                    elif command.startswith("mesg"):
+                        # Prompt the user to enter a message
+                        message = input("Enter message: ")
+
+                        # Create a dictionary with the user's command and message
+                        testdata = {"command": command, "data": message}
+
+                        # Convert the dictionary to a JSON string and then encode it to bytes
+                        encodedtestdata = json.dumps(testdata).encode()
+
+                        # Send the encoded data over the socket
+                        sock.sendall(encodedtestdata)
+                    
+                    elif command.startswith("bcst"):
+                        # Dictionary entry for broadcast message
+                        bcstdata = {"command": "bcst", "data": command[5:]}
+                        # Converting the dictionary to a JSON string for the broadcast and encoding into bytes
+                        endcodedbcst = json.dumps(bcstdata).encode()
+                        sock.sendall(endcodedbcst)
+                        
+                        print(f"{username} is sending a broadcast.")
+
+                        # Receviving broadcast or direct messages from the server   
 
             # Assuming the server will always send a response for each message
             #data = sock.recv(1024)
