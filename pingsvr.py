@@ -5,8 +5,9 @@ import threading
 
 lock = threading.Lock()
 
-
 live_connections = {}
+live_addresses = set()
+client_connections = {}
 
 def senduserlist(connection):
         # Before serialization, convert the keys to strings if they are tuples
@@ -16,20 +17,28 @@ def senduserlist(connection):
         #connection.sendall(response.encode())
     
     ###
-        with lock:
-            user_list = list(live_connections.values())
-            connection.sendall(json.dumps(user_list).encode())
+        #with lock:
+        user_list = list(live_connections.values())
+        connection.send(json.dumps(user_list).encode())
     
-
-
-def handle_client(connection, clientAddress, live_connections):
+def broadcast(json_command, json_data, clientAddress):
+    for client in live_addresses:
+        data = {"command": json_command,"data": json_data, "sender": live_connections[clientAddress]}
+        encoded_data = json.dumps(data).encode()
+        client_connections[client].send(encoded_data)
+    
+# def handle_client(connection, clientAddress, live_connections):
+def handle_client(connection, clientAddress):
     try:
-        with lock:
+        #TODO: with lock:
         # Initial data reception to add client to live_connections
-            rec_data = connection.recv(2048)
-            decoded_json = json.loads(rec_data.decode('utf-8'))
-            print(f"Initial data from {clientAddress}: {decoded_json['data']}")
-            live_connections[clientAddress] = decoded_json["data"]
+        rec_data = connection.recv(2048)
+        decoded_json = json.loads(rec_data.decode('utf-8'))
+        print(f"Initial data from {clientAddress}: {decoded_json['data']}")
+        live_connections[clientAddress] = decoded_json["data"]
+        """
+        live_addresses.add(clientAddress)
+        client_connections[clientAddress] = connection """
         
         # Continuous handling of client requests
         while True:
@@ -44,9 +53,10 @@ def handle_client(connection, clientAddress, live_connections):
             if json_command == "list":
                 senduserlist(connection)
                 
-
-
             #elif json_command == "mesg":
+
+            elif json_command == "bcst":
+                broadcast(json_command, json_data, clientAddress)
                 
 
             elif json_command == "quit":
@@ -61,6 +71,8 @@ def handle_client(connection, clientAddress, live_connections):
         with lock:
             if clientAddress in live_connections:
                 del live_connections[clientAddress]  # Remove client from live_connections
+            live_addresses.remove(clientAddress) # Remove client address from live_addresses
+            client_connections.pop(clientAddress)
             connection.close()
 
 def start_server(port):
@@ -69,14 +81,19 @@ def start_server(port):
     serverSocket.listen(10)
     print('Server is running on port', port)
 
-
     try:
         while True:
             connection, clientAddress = serverSocket.accept()
             print(f'Connection from {clientAddress}')
 
+            """ Just added """
+
+            live_addresses.add(clientAddress)
+            client_connections[clientAddress] = connection
+
             # Create a new thread for each connected client
-            client_thread = threading.Thread(target=handle_client, args=(connection, clientAddress, live_connections))
+            # client_thread = threading.Thread(target=handle_client, args=(connection, clientAddress, live_connections))
+            client_thread = threading.Thread(target=handle_client, args=(connection, clientAddress))
             client_thread.start()
 
     except KeyboardInterrupt:

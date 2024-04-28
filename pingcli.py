@@ -23,14 +23,16 @@ def main():
         # Ask for username
         print("To Connect Please Enter 'join' followed by your name: ")
         print("or 'quit' to exit:")
-        join_command = input()
+        join_command = input().lower() # Non case sensitive commands
+        username = ""
 
         if join_command == "quit":
             print("Connection closed")
             sys.exit(1)
         elif join_command.startswith("join"):
-            #the join command and the data is the username
+            # The join command and the data is the username
             join_data = json.dumps({"command": "join", "data": join_command[5:]}).encode()
+            username = join_command[5:]
             sock.connect(server_address)
             sock.sendall(join_data)
             print("Connected to server")
@@ -38,12 +40,11 @@ def main():
             print("Invalid command")
             sys.exit(1)
 
-
-
         # Connect to server
         #sock.connect(server_address)
         
         while True:
+
             command = input("Enter command (or 'quit' to exit): ")
 
             if command == "quit":
@@ -51,6 +52,7 @@ def main():
                 sock.sendall(quit_message)
                 print("Connection closed")
                 break
+
             elif command == "list":
                 list_message = json.dumps({"command": "list", "data": "empty"}).encode()
                 sock.sendall(list_message)
@@ -69,20 +71,49 @@ def main():
             elif command == "join":
                 print("You are already connected")
                 continue
+
+            elif command.startswith("mesg"):
+                # Prompt the user to enter a message
+                message = input("Enter message: ")
+
+                # Create a dictionary with the user's command and message
+                testdata = {"command": command, "data": message}
+
+                # Convert the dictionary to a JSON string and then encode it to bytes
+                encodedtestdata = json.dumps(testdata).encode()
+
+                # Send the encoded data over the socket
+                sock.sendall(encodedtestdata)
             
-                    
-            # Prompt the user to enter a message
-            message = input("Enter message: ")
+            elif command.startswith("bcst"):
+                # Dictionary entry for broadcast message
+                bcstdata = {"command": "bcst", "data": command[5:]}
+                # Converting the dictionary to a JSON string for the broadcast and encoding into bytes
+                endcodedbcst = json.dumps(bcstdata).encode()
+                sock.sendall(endcodedbcst)
+                
+                print(f"{username} is sending a broadcast.")
 
-            # Create a dictionary with the user's command and message
-            testdata = {"command": command, "data": message}
+                    # Receviving broadcast or direct messages from the server   
+            try: 
+                sock.settimeout(1)
+                data = sock.recv(4096)
+                print("data recieved")
+                if not data:
+                    pass
+                else:
+                    print("loading and encoding in pingcli")
+                    decoded_json = json.loads(data.decode())
+                    json_command = decoded_json["command"]
+                    json_data = decoded_json["data"]
+                    json_sender = decoded_json["sender"]
 
-            # Convert the dictionary to a JSON string and then encode it to bytes
-            encodedtestdata = json.dumps(testdata).encode()
+                    # Displaying broadcast and direct messages to client
+                    print(f"{json_sender}: {json_data}")
+            except:
+                print("Broadcast or Message try-catch exception")
 
-            # Send the encoded data over the socket
-            sock.sendall(encodedtestdata)
-            
+
             # Assuming the server will always send a response for each message
             #data = sock.recv(1024)
             #print(f"Received from {server_address}: {data.decode()}")
