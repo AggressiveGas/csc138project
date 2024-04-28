@@ -100,17 +100,14 @@ def main():
                         continue
 
                     elif command.startswith("mesg"):
-                        # Prompt the user to enter a message
-                        message = input("Enter message: ")
-
-                        # Create a dictionary with the user's command and message
-                        testdata = {"command": command, "data": message}
+                        # Create a dictionary with the user's command, data: username & message
+                        data = {"command": "mesg", "data": command[5:]}
 
                         # Convert the dictionary to a JSON string and then encode it to bytes
-                        encodedtestdata = json.dumps(testdata).encode()
+                        encodeddata = json.dumps(data).encode()
 
                         # Send the encoded data over the socket
-                        sock.sendall(encodedtestdata)
+                        sock.sendall(encodeddata)
                     
                     elif command.startswith("bcst"):
                         # Dictionary entry for broadcast message

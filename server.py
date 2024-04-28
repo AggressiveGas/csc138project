@@ -10,43 +10,36 @@ live_addresses = set()
 client_connections = {}
 
 def senduserlist(connection):
-        # Before serialization, convert the keys to strings if they are tuples
-        #live_connections_str_keys = {str(key): value for key, value in live_connections.items()}
-
-        #response = json.dumps(live_connections_str_keys)
-        #connection.sendall(response.encode())
-    
-    ###
-        #with lock:
-        user_list = list(live_connections.values())
-        connection.send(json.dumps(user_list).encode())
+        user_list = list(live_connections.values())     # Getting the list of usernames
+        connection.send(json.dumps(user_list).encode()) # Sending to the user who requested it
     
 def broadcast(json_command, json_data, clientAddress):
-    with lock:
-        for client in live_addresses:
+    with lock: # Not client specific
+        for client in live_addresses: # Sending the data to all the addresses except sender
             if client != clientAddress:
-                json_data = "BCST " + json_data
+                json_data = "BCST " + json_data # Adding BCST to beginning of message to show it's not a direct message
                 data = {"command": json_command,"data": json_data, "sender": live_connections[clientAddress]}
                 encoded_data = json.dumps(data).encode()
                 client_connections[client].send(encoded_data)
 
-#Jordan Dawson - mesg takes the command, uses the end of that to find the recippient, then sends the message in form of the data,
+#Jordan Dawson - mesg takes the command, uses the end of that to find the recipient, then sends the message in form of the data,
 #as well as the senders handle to the recipient.
 def mesg(json_command, json_data, clientAddress):
     with lock: 
-        recipient = json_command[5:]       
+        sent = 0       
         for client in live_addresses:
-            if live_connections[client] == recipient:
-                data = {"command": "mesg", "data": json_data, "sender": live_connections[clientAddress]}
+            print(f"{json_data[0]} and {json_data[1]}")
+            if live_connections[client] == json_data[0]:
+                data = {"command": json_command, "data": json_data[1], "sender": live_connections[clientAddress]}
                 encoded_data = json.dumps(data).encode()
                 client_connections[client].send(encoded_data)
+                sent += 1
+        if sent != 1:
+            data = {"command": "except", "data": "Unknown Recipient"}
+            client_connections[clientAddress].sendall(json.dumps(data).encode())
 
-
-
-# def handle_client(connection, clientAddress, live_connections):
 def handle_client(connection, clientAddress):
     try:
-        #TODO: with lock:
         # Initial data reception to add client to live_connections
         rec_data = connection.recv(2048)
         decoded_json = json.loads(rec_data.decode('utf-8'))
@@ -66,8 +59,14 @@ def handle_client(connection, clientAddress):
             if json_command == "list":
                 senduserlist(connection)
                 
-            elif json_command.startswith("mesg"):
-                mesg(json_command, json_data, clientAddress)
+            elif json_command == "mesg":
+                try:
+                    split_json_data = json_data.split(" ", 1)
+                    print(f"json data: {split_json_data}")
+                    mesg(json_command, split_json_data, clientAddress)
+                except:
+                    data = {"command": "except", "data": "Usage:mesg <username> <message>"}
+                    connection.sendall(json.dumps(data).encode())
 
             elif json_command == "bcst":
                 broadcast(json_command, json_data, clientAddress)
@@ -78,8 +77,9 @@ def handle_client(connection, clientAddress):
                 break
 
             print(f"{clientAddress}: {json_data}")
-            response = "RECEIVED : " + json_data
+            response = f"RECEIVED : {json_data}"
             connection.sendall(response.encode())
+
 
     finally:
         with lock:
@@ -104,7 +104,6 @@ def start_server(port):
             client_connections[clientAddress] = connection
 
             # Create a new thread for each connected client
-            # client_thread = threading.Thread(target=handle_client, args=(connection, clientAddress, live_connections))
             client_thread = threading.Thread(target=handle_client, args=(connection, clientAddress))
             client_thread.start()
 
