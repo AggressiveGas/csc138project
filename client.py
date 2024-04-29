@@ -12,7 +12,7 @@ def main():
     try:
         server_port = int(sys.argv[2])
     except ValueError:
-        print("client side error")
+        print("Client side error")
         sys.exit(1)
 
     server_address = (server_host, server_port)
@@ -20,60 +20,73 @@ def main():
     # Create a TCP socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-
     try:
-        # Ask for username
-        print("To Connect Please Enter 'join' followed by your name: ")
-        print("or 'quit' to exit:")
-        join_command = input().lower() # Non case sensitive commands
-        username = ""
+        next = True
+        while next:
+            socket_list = [sys.stdin, sock]
+            read_sockets, write_socket, error_socket = select.select(socket_list,[],[])
 
-        if join_command == "quit":
-            print("Connection closed")
-            sys.exit(1)
-        elif join_command.startswith("join"):
-            # The join command and the data is the username
-            join_data = json.dumps({"command": "join", "data": join_command[5:]}).encode()
-            username = join_command[5:]
-            sock.connect(server_address)
-            sock.sendall(join_data)
-            print("Connected to server")
-        else:
-            print("Invalid command")
-            sys.exit(1)
+            for socks in read_sockets:
+                if socks == sock:
+                    # Ask for username
+                    print("To Connect Please Enter 'join' followed by your name: ")
+                    print("or 'quit' to exit:")
+                    join_command = input().lower() # Non case sensitive commands
+                    username = ""
+                    if join_command == "quit":
+                        print("Connection closed")
+                        sys.exit(1)
+                    elif join_command.startswith("join"):
+                        # The join command and data = username
+                        join_data = json.dumps({"command": "join", "data": join_command[5:]}).encode()
+                        username = join_command[5:]
+                        sock.connect(server_address)
+                        try:
+                            sock.timeout(1)
+                            data = sock.recv(4096)
+                            decoded_data = json.loads(data).decode()
+                            message = decoded_data["data"]
+                            if decoded_data["command"] == "except":
+                                print(f"{message}")
+                                sys.exit(1)
+                        except:
+                            sock.sendall(join_data)
+                            print("Connected to server")
+                            next = False
+                    else:
+                        print("Invalid command")
+                        sys.exit(1)
 
-        # Connect to server
-        #sock.connect(server_address)
         
         while True:
 
             socket_list = [sys.stdin, sock]
-            read_sockets,write_socket, error_socket = select.select(socket_list,[],[])
+            read_sockets, write_socket, error_socket = select.select(socket_list,[],[])
 
             for socks in read_sockets:
                 if socks == sock:
                     try: 
+                        # Continuously receviving data from the server   
                         data = sock.recv(4096)
 
                         if not data:
                             break
-
+                        
                         decoded_json = json.loads(data.decode())
-                        #TODO print("loading and encoding in pingcli")
-                        json_command = decoded_json["command"]
                         json_data = decoded_json["data"]
                         json_sender = decoded_json["sender"]
-                        
-                        # Displaying broadcast and direct messages to client
-                        print(f"{json_sender}: {json_data}")
+
+                        if json_sender == None:
+                            print(f"{json_data}")
+                        else:
+                            # Displaying broadcast and direct messages to client
+                            print(f"{json_sender}: {json_data}")
                     except:
-                        #TODO
                         continue
                 else:
                     # command = input("Enter command (or 'quit' to exit): ")
                     command = input()
 
-            
                     if command == "quit":
                         quit_message = json.dumps({"command": "quit", "data": "User has disconnected"}).encode()
                         sock.sendall(quit_message)
@@ -96,7 +109,7 @@ def main():
                             print(f"Error decoding JSON from server: {e}")
 
                     elif command == "join":
-                        print("You are already connected")
+                        print("You are already connected to the server.")
                         continue
 
                     elif command.startswith("mesg"):
@@ -117,12 +130,6 @@ def main():
                         sock.sendall(endcodedbcst)
                         
                         print(f"{username} is sending a broadcast.")
-
-                        # Receviving broadcast or direct messages from the server   
-
-            # Assuming the server will always send a response for each message
-            #data = sock.recv(1024)
-            #print(f"Received from {server_address}: {data.decode()}")
             
     finally:
         sock.close()

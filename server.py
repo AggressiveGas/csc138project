@@ -15,11 +15,11 @@ def senduserlist(connection):
     
 def broadcast(json_command, json_data, clientAddress):
     with lock: # Not client specific
+        json_data = "BCST " + json_data # Adding BCST to beginning of message to show it's not a direct message
+        data = {"command": json_command,"data": json_data, "sender": live_connections[clientAddress]}
+        encoded_data = json.dumps(data).encode()
         for client in live_addresses: # Sending the data to all the addresses except sender
             if client != clientAddress:
-                json_data = "BCST " + json_data # Adding BCST to beginning of message to show it's not a direct message
-                data = {"command": json_command,"data": json_data, "sender": live_connections[clientAddress]}
-                encoded_data = json.dumps(data).encode()
                 client_connections[client].send(encoded_data)
 
 #Jordan Dawson - mesg takes the command, uses the end of that to find the recipient, then sends the message in form of the data,
@@ -28,14 +28,13 @@ def mesg(json_command, json_data, clientAddress):
     with lock: 
         sent = 0       
         for client in live_addresses:
-            print(f"{json_data[0]} and {json_data[1]}")
             if live_connections[client] == json_data[0]:
                 data = {"command": json_command, "data": json_data[1], "sender": live_connections[clientAddress]}
                 encoded_data = json.dumps(data).encode()
                 client_connections[client].send(encoded_data)
                 sent += 1
         if sent != 1:
-            data = {"command": "except", "data": "Unknown Recipient"}
+            data = {"command": "except", "data": "Unknown Recipient", "sender": None}
             client_connections[clientAddress].sendall(json.dumps(data).encode())
 
 def handle_client(connection, clientAddress):
@@ -62,7 +61,6 @@ def handle_client(connection, clientAddress):
             elif json_command == "mesg":
                 try:
                     split_json_data = json_data.split(" ", 1)
-                    print(f"json data: {split_json_data}")
                     mesg(json_command, split_json_data, clientAddress)
                 except:
                     data = {"command": "except", "data": "Usage:mesg <username> <message>"}
@@ -99,13 +97,21 @@ def start_server(port):
         while True:
             connection, clientAddress = serverSocket.accept()
             print(f'Connection from {clientAddress}')
+            if len(live_addresses) <= 9: # Can only join if there are nine or less users currently on the server
+                # Registering the client
+                live_addresses.add(clientAddress)
+                client_connections[clientAddress] = connection
 
-            live_addresses.add(clientAddress)
-            client_connections[clientAddress] = connection
+                # Create a new thread for each connected client
+                client_thread = threading.Thread(target=handle_client, args=(connection, clientAddress))
+                client_thread.start()
+            else:
+                # Ten users on the server send back an error message
+                data = {"command": "except", "data": "Too many users. Please try again later."}
+                connection.sendall(json.dumps(data).encode())
+                # Close the connection
+                connection.close()
 
-            # Create a new thread for each connected client
-            client_thread = threading.Thread(target=handle_client, args=(connection, clientAddress))
-            client_thread.start()
 
     except KeyboardInterrupt:
         print("\nServer is shutting down.")
