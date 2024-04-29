@@ -31,37 +31,43 @@ def main():
         next = True
         while next:
             # Socket list to switch between receiving data from the server and the user
-            socket_list = [sys.stdin, sock]
-            read_sockets, write_socket, error_socket = select.select(socket_list,[],[])
+            sockets = [sys.stdin, sock]
+            read, write, error = select.select(sockets,[],[])
 
-            for socks in read_sockets:
+            for socks in read:
                 if socks == sock:
                     # Ask for username
                     print("To Connect Please Enter 'join' followed by your name: ")
                     print("or 'quit' to exit:")
-                    join_command = input().lower() # Non case sensitive commands
+                    join_command = input() # Non case sensitive commands
+                    split_command = join_command.lower().split()
                     username = ""
-                    if join_command == "quit":
+                    if split_command[0] == "quit":
                         print("Connection closed")
                         sys.exit(1)
-                    elif join_command.startswith("join"):
+                    elif split_command[0] == "join":
                         # The join command and data = username
                         join_data = json.dumps({"command": "join", "data": join_command[5:]}).encode()
                         username = join_command[5:]
-                        sock.connect(server_address)
                         try:
-                            sock.sendall(join_data)
-                            sock.settimeout(1)
-                            sock.recv(4096)
-                            print("Connected to server")
-                            # Displaying commands and their usage to the user
-                            print('\n"list"   for a list of users in the chat room')
-                            print('"mesg <username> <message>"  to directly message another user')
-                            print('"bcst <message>" to send a message to the chat room')
-                            print('"quit"   to leave the chat room\n')
-                            next = False
+                            sock.connect(server_address)
+                            try:
+                                sock.sendall(join_data)
+                                sock.settimeout(1)
+                                sock.recv(4096)
+                                print("Connected to server")
+                                # Displaying commands and their usage to the user
+                                print('\n"list"   for a list of users in the chat room')
+                                print('"mesg <username> <message>"  to directly message another user')
+                                print('"bcst <message>" to send a message to the chat room')
+                                print('"quit"   to leave the chat room\n')
+                                next = False
+                            except:
+                                print("Too many users. Please try again later.")
+                                sys.exit(1)
                         except:
-                            print("Too many users. Please try again later.")
+                            # No reponse from server
+                            print("Server is not available")
                             sys.exit(1)
                     else:
                         print("Invalid command")
