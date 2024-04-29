@@ -88,7 +88,8 @@ def main():
                         quit_message = json.dumps({"command": "quit", "data": "User has disconnected"}).encode()
                         sock.sendall(quit_message)
                         print("Connection closed")
-                        break
+                        sock.close()
+                        sys.exit(1)
 
                     elif command == "list":
                         list_message = json.dumps({"command": "list", "data": "empty"}).encode()

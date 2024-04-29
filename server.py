@@ -10,15 +10,20 @@ live_addresses = set()
 client_connections = {}
 
 def senduserlist(connection):
-        user_list = list(live_connections.values())     # Getting the list of usernames
-        connection.send(json.dumps(user_list).encode()) # Sending to the user who requested it
+        try:
+            user_list = list(live_connections.values())     # Getting the list of usernames
+            connection.send(json.dumps(user_list).encode()) # Sending to the user who requested it
+        except:
+            data = {"command": "excp", "data": "Server Error: Try Again.", "sender": None}
+            connection.sendall(json.dumps(data).encode())
     
 def broadcast(json_command, json_data, clientAddress):
     with lock: # Not client specific
-        try:
-            data = {"command": json_command,"data": json_data, "sender": live_connections[clientAddress]}
+        data = {}
+        if clientAddress:
             json_data = "BCST " + json_data # Adding BCST to beginning of message to show it's not a direct message
-        except:
+            data = {"command": json_command,"data": json_data, "sender": live_connections[clientAddress]}
+        else:
             data = {"command": json_command,"data": json_data, "sender": None}
         encoded_data = json.dumps(data).encode()
         for client in live_addresses: # Sending the data to all the addresses except sender
@@ -46,10 +51,11 @@ def handle_client(connection, clientAddress):
         rec_data = connection.recv(2048)
         decoded_json = json.loads(rec_data.decode('utf-8'))
         print(f"Initial data from {clientAddress}: {decoded_json['data']}")
+        print(f"{decoded_json['data']} joined the chat room.")
         live_connections[clientAddress] = decoded_json["data"]
 
         connection.sendall(json.dumps("connected").encode())
-        broadcast("bcst", f"{live_connections[clientAddress]} has joined the server.", None)
+        broadcast("bcst", f"{live_connections[clientAddress]} has joined the chat room.", None)
 
         # Continuous handling of client requests
         while True:
@@ -77,12 +83,14 @@ def handle_client(connection, clientAddress):
                 
 
             elif json_command == "quit":
+                broadcast("bcst", f"{live_connections[clientAddress]} has left the chat room.", None)
                 print(f"{clientAddress} has disconnected")
                 break
-
-            print(f"{clientAddress}: {json_data}")
-            response = f"RECEIVED : {json_data}"
-            connection.sendall(response.encode())
+            
+            if {json_data} != "empty":
+                print(f"{clientAddress}: {json_data}")
+                response = f"RECEIVED : {json_data}"
+                connection.sendall(response.encode())
 
     finally:
         with lock:
@@ -96,12 +104,13 @@ def start_server(port):
     serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     serverSocket.bind(('0.0.0.0', port))
     serverSocket.listen(10)
-    print('Server is running on port', port)
+    print('Chat Server Started')
+    print('Server is running on port: ', port)
 
     try:
         while True:
             connection, clientAddress = serverSocket.accept()
-            print(f'Connection from {clientAddress}')
+            print(f'Connection incoming from {clientAddress}')
             if len(live_addresses) <= 9: # Can only join if there are nine or less users currently on the server
                 # Registering the client
                 live_addresses.add(clientAddress)
@@ -110,6 +119,7 @@ def start_server(port):
                 # Create a new thread for each connected client
                 client_thread = threading.Thread(target=handle_client, args=(connection, clientAddress))
                 client_thread.start()
+                print(f'Connected with {clientAddress}')
             else:
                 # Close the connection
                 connection.close()
