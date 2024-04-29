@@ -101,7 +101,12 @@ def main():
                             break
                         try:
                             connections_list = json.loads(data.decode())  # Decode and parse the JSON string
-                            print("Current connections:", connections_list)
+                            
+                            # Formatting list of users to display
+                            # Format: name1, name2, name3, etc
+                            list_str = str(connections_list)
+                            formatted_str = (list_str[1:len(list_str)-1]).replace("'", "")
+                            print(f"Current connections: {formatted_str}") 
                         except json.JSONDecodeError as e:
                             print(f"Error decoding JSON from server: {e}")
 

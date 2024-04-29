@@ -15,8 +15,11 @@ def senduserlist(connection):
     
 def broadcast(json_command, json_data, clientAddress):
     with lock: # Not client specific
-        json_data = "BCST " + json_data # Adding BCST to beginning of message to show it's not a direct message
-        data = {"command": json_command,"data": json_data, "sender": live_connections[clientAddress]}
+        try:
+            data = {"command": json_command,"data": json_data, "sender": live_connections[clientAddress]}
+            json_data = "BCST " + json_data # Adding BCST to beginning of message to show it's not a direct message
+        except:
+            data = {"command": json_command,"data": json_data, "sender": None}
         encoded_data = json.dumps(data).encode()
         for client in live_addresses: # Sending the data to all the addresses except sender
             if client != clientAddress:
@@ -46,6 +49,7 @@ def handle_client(connection, clientAddress):
         live_connections[clientAddress] = decoded_json["data"]
 
         connection.sendall(json.dumps("connected").encode())
+        broadcast("bcst", f"{live_connections[clientAddress]} has joined the server.", None)
 
         # Continuous handling of client requests
         while True:
