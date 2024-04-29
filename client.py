@@ -1,3 +1,10 @@
+# Contributors: Jordan Dawson, Kevin Esquivel, Katrina Yu
+# Course: CSC138-04
+# Due Date: 04/30/2024
+# Description: Implementation for a chatroom client using a TCP socket to
+#               connect with the server.
+# Usage: python3 pingcli.py <server_host> <server_port>
+
 import select
 import socket
 import sys
@@ -23,6 +30,7 @@ def main():
     try:
         next = True
         while next:
+            # Socket list to switch between receiving data from the server and the user
             socket_list = [sys.stdin, sock]
             read_sockets, write_socket, error_socket = select.select(socket_list,[],[])
 
@@ -46,6 +54,11 @@ def main():
                             sock.settimeout(1)
                             sock.recv(4096)
                             print("Connected to server")
+                            # Displaying commands and their usage to the user
+                            print('\n"list"   for a list of users in the chat room')
+                            print('"mesg <username> <message>"  to directly message another user')
+                            print('"bcst <message>" to send a message to the chat room')
+                            print('"quit"   to leave the chat room\n')
                             next = False
                         except:
                             print("Too many users. Please try again later.")
@@ -56,7 +69,7 @@ def main():
 
         
         while True:
-
+            # Socket list to switch between receiving data from the server and the user
             socket_list = [sys.stdin, sock]
             read_sockets, write_socket, error_socket = select.select(socket_list,[],[])
 
@@ -81,17 +94,19 @@ def main():
                     except:
                         continue
                 else:
-                    # command = input("Enter command (or 'quit' to exit): ")
-                    command = input()
+                    user_input = input() # Receiving data from the user
+                    command = user_input.lower().split() # removing case sensitivity
 
-                    if command == "quit":
+                    # Sends message to broadcast user leaving chat room to server and closes client
+                    if command[0] == "quit":
                         quit_message = json.dumps({"command": "quit", "data": "User has disconnected"}).encode()
                         sock.sendall(quit_message)
                         print("Connection closed")
                         sock.close()
                         sys.exit(1)
 
-                    elif command == "list":
+                    # Sends back list of active users in the chat room
+                    elif command[0] == "list":
                         list_message = json.dumps({"command": "list", "data": "empty"}).encode()
                         sock.sendall(list_message)
             
@@ -110,14 +125,16 @@ def main():
                             print(f"Current connections: {formatted_str}") 
                         except json.JSONDecodeError as e:
                             print(f"Error decoding JSON from server: {e}")
-
-                    elif command == "join":
-                        print("You are already connected to the server.")
+                    
+                    # Send feedback for trying to join again
+                    elif command[0] == "join":
+                        print("You are already connected to the chat room.")
                         continue
-
-                    elif command.startswith("mesg"):
+                    
+                    # Direct messaging another user, send data to server
+                    elif command[0] == "mesg":
                         # Create a dictionary with the user's command, data: username & message
-                        data = {"command": "mesg", "data": command[5:]}
+                        data = {"command": "mesg", "data": user_input[5:]}
 
                         # Convert the dictionary to a JSON string and then encode it to bytes
                         encodeddata = json.dumps(data).encode()
@@ -125,14 +142,18 @@ def main():
                         # Send the encoded data over the socket
                         sock.sendall(encodeddata)
                     
-                    elif command.startswith("bcst"):
+                    # Broadcasting to chat room, send data to server
+                    elif command[0] == "bcst":
                         # Dictionary entry for broadcast message
-                        bcstdata = {"command": "bcst", "data": command[5:]}
+                        bcstdata = {"command": "bcst", "data": user_input[5:]}
                         # Converting the dictionary to a JSON string for the broadcast and encoding into bytes
                         endcodedbcst = json.dumps(bcstdata).encode()
                         sock.sendall(endcodedbcst)
                         
+                        # Feedback for user
                         print(f"{username} is sending a broadcast.")
+                    else:
+                        print("Invalild command.")
             
     finally:
         sock.close()
