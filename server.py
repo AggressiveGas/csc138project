@@ -34,7 +34,7 @@ def mesg(json_command, json_data, clientAddress):
                 client_connections[client].send(encoded_data)
                 sent += 1
         if sent != 1:
-            data = {"command": "except", "data": "Unknown Recipient", "sender": None}
+            data = {"command": "excp", "data": "Unknown Recipient", "sender": None}
             client_connections[clientAddress].sendall(json.dumps(data).encode())
 
 def handle_client(connection, clientAddress):
@@ -44,6 +44,8 @@ def handle_client(connection, clientAddress):
         decoded_json = json.loads(rec_data.decode('utf-8'))
         print(f"Initial data from {clientAddress}: {decoded_json['data']}")
         live_connections[clientAddress] = decoded_json["data"]
+
+        connection.sendall(json.dumps("connected").encode())
 
         # Continuous handling of client requests
         while True:
@@ -78,7 +80,6 @@ def handle_client(connection, clientAddress):
             response = f"RECEIVED : {json_data}"
             connection.sendall(response.encode())
 
-
     finally:
         with lock:
             if clientAddress in live_connections:
@@ -106,9 +107,6 @@ def start_server(port):
                 client_thread = threading.Thread(target=handle_client, args=(connection, clientAddress))
                 client_thread.start()
             else:
-                # Ten users on the server send back an error message
-                data = {"command": "except", "data": "Too many users. Please try again later."}
-                connection.sendall(json.dumps(data).encode())
                 # Close the connection
                 connection.close()
 

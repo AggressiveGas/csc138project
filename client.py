@@ -42,17 +42,14 @@ def main():
                         username = join_command[5:]
                         sock.connect(server_address)
                         try:
-                            sock.timeout(1)
-                            data = sock.recv(4096)
-                            decoded_data = json.loads(data).decode()
-                            message = decoded_data["data"]
-                            if decoded_data["command"] == "except":
-                                print(f"{message}")
-                                sys.exit(1)
-                        except:
                             sock.sendall(join_data)
+                            sock.settimeout(1)
+                            sock.recv(4096)
                             print("Connected to server")
                             next = False
+                        except:
+                            print("Too many users. Please try again later.")
+                            sys.exit(1)
                     else:
                         print("Invalid command")
                         sys.exit(1)
