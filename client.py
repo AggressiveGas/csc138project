@@ -112,7 +112,7 @@ def main():
                         sys.exit(1)
 
                     # Sends back list of active users in the chat room
-                    elif command[0] == "list":
+                    elif command[0] == "list" and len(command) == 1:
                         list_message = json.dumps({"command": "list", "data": "empty"}).encode()
                         sock.sendall(list_message)
             
