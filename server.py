@@ -141,6 +141,8 @@ def start_server(port):
 
     # ^C to close server
     except KeyboardInterrupt:
+        # Broadcast to all clients to shutdown
+        broadcast("bcst", "Server is shutting down.", None)
         print("\nServer is shutting down.")
     finally:
         serverSocket.close()

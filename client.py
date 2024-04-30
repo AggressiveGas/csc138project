@@ -94,6 +94,11 @@ def main():
 
                         if json_sender == None:
                             print(f"{json_data}")
+                            if json_data == "Server is shutting down.":
+                                print("Connection closed")
+                                sock.close()
+                                sys.exit(1)
+
                         else:
                             # Displaying broadcast and direct messages to client
                             print(f"{json_sender}: {json_data}")
